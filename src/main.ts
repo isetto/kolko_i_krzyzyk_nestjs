@@ -3,10 +3,10 @@ import { AppModule } from './app.module';
 import { connectDb } from './mongodb';
 
 
-async function bootstrap() {
+export async function app() {
   const app = await NestFactory.create( AppModule );
   await app.listen( 3000 );
   await connectDb()
 }
 
-bootstrap();
+app();

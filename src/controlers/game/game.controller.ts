@@ -1,62 +1,55 @@
-import { Controller, Get, Post, Param, Put, Body, Res, HttpStatus, HttpException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Put, Body, Res, HttpStatus, HttpException, Next } from '@nestjs/common';
 import { Move } from '../../models/move'
-import { GameStateSchema, GameState } from '../../models/game-state'
-import { GameService } from 'src/services/game/game.service';
+import { GameState } from '../../models/game-state'
+import { GameService } from '../../services/game/game.service';
 import * as uniqid from 'uniqid';
-import { GameAction } from 'src/models/game-action';
+import { GameLogic } from '../../class/game-logic';
 
+const GameClass = new GameLogic()
 @Controller( '/api/v1/game' )
 export class GameController {
     constructor( private readonly gameService: GameService ) { }
 
 
     @Post( '/' )
-    async start( @Res() res, @Body() game: GameState ) {
+    async start( @Res() res, @Body() game: GameState, @Next() next ) {
         const constructGame = Object.assign( game, { _id: uniqid.time() } )
         try {
             const createdGame = await this.gameService.startGame( constructGame )
             return res.status( 201 ).json( createdGame );
         }
         catch ( err ) {
-            return res.status( err.status ).json( err.response )
+            next( err )
         }
     }
 
     @Get( ':id' )
-    async find( @Res() res, @Param( 'id' ) id: string ) {
+    async find( @Res() res, @Param( 'id' ) id: string, @Next() next ) {
         try {
             const foundGame = await this.gameService.findGame( id )
-            return res.status( 200 ).json( foundGame );
+            if ( foundGame ) {
+                return res.status( 200 ).json( foundGame );
+            } else {
+                throw new HttpException( "Game not found", 404 )
+            }
+        } catch ( err ) {
+            next( err )
         }
-        catch ( err ) {
-            return res.status( err.status ).json( err.response )
-        }
+
     }
 
     @Put( ':id/board' )
-    async move( @Res() res, @Param( 'id' ) id: string, @Body() move: Move ) {
+    async move( @Res() res, @Param( 'id' ) id: string, @Body() move: Move, @Next() next ) {
         try {
-            const gameResult = await this.gameService.makeMove( id, move )
-            if ( gameResult === GameAction.finished ) {
-                return res.status( 200 ).send( "Game is finished" )
-            }
-            if ( gameResult === GameAction.moved ) {
-                return res.status( 200 ).send( "Move was made" )
-            } else if ( gameResult === GameAction.block ) {
-                throw new HttpException( "This field is taken", 400 )
-            }
-            else if ( gameResult === GameAction.xWin ) {
-                return res.status( 200 ).send( "Player X Wins!" )
-            }
-            else if ( gameResult === GameAction.yWin ) {
-                return res.status( 200 ).send( "Player Y Wins!" )
-            }
-            else if ( gameResult === GameAction.draw ) {
-                return res.status( 200 ).send( "Draw" )
-            }
+            const previousGame = await this.gameService.findGame( id )
+            if ( !previousGame ) throw new HttpException( "Game not found", 404 )
+            const isFieldEmpty = GameClass.checkIsFieldEmpty( move, previousGame.state )
+            const gameResult = await this.gameService.makeMove( id, move, previousGame, isFieldEmpty )
+            const response = GameClass.getResponseForGameAction( gameResult )
+            return res.status( response.code ).json( response.message );
         }
         catch ( err ) {
-            return res.status( err.status ).json( err.response )
+            next( err )
         }
     }
 }

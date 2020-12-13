@@ -1,11 +1,11 @@
-import { Move } from "src/models/move"
-import { GameState } from "src/models/game-state"
-import { GameAction } from "src/models/game-action"
+import { Move } from "../models/move"
+import { GameState } from "../models/game-state"
+import { GameAction } from "../models/game-action"
 
 export class GameLogic {
-    async checkIsFieldEmpty( id: string, move: Move, previousGameState: GameState ): Promise<boolean> {
+    checkIsFieldEmpty( move: Move, state: Move[] ): boolean {
         let isEmpty = true
-        previousGameState.state.forEach( ( m: Move ) => {
+        state.forEach( ( m: Move ) => {
             if ( m.field === move.field ) {
                 isEmpty = false
             }
@@ -13,8 +13,44 @@ export class GameLogic {
         return isEmpty
     }
 
-    async checkIsBoardFull( id: string, move: Move, gameState: GameState ): Promise<boolean> {
-        if ( gameState.state.length === 9 ) return true
+    getResponseForGameAction( gameResult: GameAction ): { code: Number, message: String } {
+        const response = {
+            code: 0,
+            message: ''
+        }
+        if ( gameResult === GameAction.finished ) {
+            response.code = 200
+            response.message = "Game is finished"
+            return response
+        }
+        if ( gameResult === GameAction.moved ) {
+            response.code = 200
+            response.message = "Move was made"
+            return response
+        } else if ( gameResult === GameAction.block ) {
+            response.code = 400
+            response.message = "This field is taken"
+            return response
+        }
+        else if ( gameResult === GameAction.xWin ) {
+            response.code = 200
+            response.message = "Player X Wins!"
+            return response
+        }
+        else if ( gameResult === GameAction.yWin ) {
+            response.code = 200
+            response.message = "Player Y Wins!"
+            return response
+        }
+        else if ( gameResult === GameAction.draw ) {
+            response.code = 200
+            response.message = "Draw"
+            return response
+        }
+    }
+
+    checkIsBoardFull( length: Number ): boolean {
+        if ( length === 9 ) return true
         else return false
     }
     winResult( game: GameState ): GameAction {
@@ -35,8 +71,12 @@ export class GameLogic {
         } )
 
         const xResult = this.winConditions( xFields )
-        if ( xResult ) return GameAction.xWin
         const YResult = this.winConditions( yFields )
+        return this.moveOutcome( xResult, YResult )
+    }
+
+    moveOutcome( xResult: boolean, YResult: boolean ): GameAction {
+        if ( xResult ) return GameAction.xWin
         if ( YResult ) return GameAction.yWin
         if ( !xResult && !YResult ) return GameAction.moved
     }

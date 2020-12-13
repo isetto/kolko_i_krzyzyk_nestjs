@@ -1,8 +1,8 @@
 import { Injectable, HttpException } from '@nestjs/common';
-import { GameStateSchema, GameState } from 'src/models/game-state';
-import { Move } from 'src/models/move';
-import { GameAction } from 'src/models/game-action';
-import { GameLogic } from 'src/class/game-logic';
+import { GameStateSchema, GameState } from '../../models/game-state';
+import { Move } from '../../models/move';
+import { GameAction } from '../../models/game-action';
+import { GameLogic } from '../../class/game-logic';
 
 const GameClass = new GameLogic()
 @Injectable()
@@ -12,20 +12,13 @@ export class GameService {
     }
     async findGame( id: string ): Promise<GameState> {
         const gameState = await GameStateSchema.findOne( { '_id': id } )
-        if ( !gameState ) {
-            throw new HttpException( "No such game", 404 )
-        }
         return gameState
     }
-    async makeMove( id: string, move: Move ): Promise<GameAction> {
+    async makeMove( id: string, move: Move, previousGameState: GameState, isFieldEmpty: boolean ): Promise<GameAction> {
         let gameAction
-        const previousGameState = await this.findGame( id )
         if ( previousGameState.isFinished ) {
-            gameAction = GameAction.finished
-            return gameAction
+            return GameAction.finished
         }
-
-        const isFieldEmpty = await GameClass.checkIsFieldEmpty( id, move, previousGameState )
         if ( isFieldEmpty ) {
             await GameStateSchema.updateOne( { '_id': id }, { $push: { state: move } } )
             const gameState = await this.findGame( id )
@@ -38,7 +31,7 @@ export class GameService {
             gameAction = GameAction.block
         }
         const currentGameState = await this.findGame( id )
-        const isBoardFull = await GameClass.checkIsBoardFull( id, move, currentGameState )
+        const isBoardFull = await GameClass.checkIsBoardFull( currentGameState.state.length )
         if ( isBoardFull ) {
             gameAction = GameAction.draw
             this.setGameFinished( id )
