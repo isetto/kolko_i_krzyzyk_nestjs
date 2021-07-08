@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Put, Body, Res, HttpStatus, HttpException, Next } from '@nestjs/common';
+import { Controller, Get, Post, Param, Put, Body, Res, HttpStatus, HttpException, Next, HttpCode } from '@nestjs/common';
 import { Move } from '../../models/move'
 import { GameState } from '../../models/game-state'
 import { GameService } from '../../services/game/game.service';
@@ -12,23 +12,20 @@ export class GameController {
 
 
     @Post( '/' )
-    async start( @Res() res, @Body() game: GameState, @Next() next ) {
+    @HttpCode( 201 )
+    async start( @Body() game: GameState ) {
         const constructGame = Object.assign( game, { _id: uniqid.time() } )
-        try {
-            const createdGame = await this.gameService.startGame( constructGame )
-            return res.status( 201 ).json( createdGame );
-        }
-        catch ( err ) {
-            next( err )
-        }
+        const createdGame = await this.gameService.startGame( constructGame )
+        return createdGame
     }
 
     @Get( ':id' )
-    async find( @Res() res, @Param( 'id' ) id: string, @Next() next ) {
+    @HttpCode( 200 )
+    async find( @Param( 'id' ) id: string, @Next() next ) {
         try {
             const foundGame = await this.gameService.findGame( id )
             if ( foundGame ) {
-                return res.status( 200 ).json( foundGame );
+                return foundGame
             } else {
                 throw new HttpException( "Game not found", 404 )
             }
